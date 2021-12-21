@@ -9,6 +9,8 @@ internal sealed class ConsoleHostedService : IHostedService
     private readonly IHostApplicationLifetime _appLifetime;
     private readonly IWeatherService _weatherService;
 
+    private CancellationTokenSource? _cancellationTokenSource;
+    private Task? _applicationTask;
     private int? _exitCode;
 
     public ConsoleHostedService(
@@ -27,17 +29,22 @@ internal sealed class ConsoleHostedService : IHostedService
 
         _appLifetime.ApplicationStarted.Register(() =>
         {
-            Task.Run(async () =>
+            _cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            _applicationTask = Task.Run(async () =>
             {
                 try
                 {
-                    IReadOnlyList<int> temperatures = await _weatherService.GetFiveDayTemperaturesAsync();
+                    IReadOnlyList<int> temperatures = await _weatherService.GetFiveDayTemperaturesAsync(_cancellationTokenSource.Token);
                     for (int i = 0; i < temperatures.Count; i++)
                     {
                         _logger.LogInformation($"{DateTime.Today.AddDays(i).DayOfWeek}: {temperatures[i]}");
                     }
 
                     _exitCode = 0;
+                }
+                catch (TaskCanceledException)
+                {
+                    // This means the application is shutting down, so just swallow this exception
                 }
                 catch (Exception ex)
                 {
@@ -55,12 +62,21 @@ internal sealed class ConsoleHostedService : IHostedService
         return Task.CompletedTask;
     }
 
-    public Task StopAsync(CancellationToken cancellationToken)
+    public async Task StopAsync(CancellationToken cancellationToken)
     {
+        _logger.LogDebug("Application is stopping");
+        _cancellationTokenSource?.Cancel();
+
+        // Wait for the application logic to fully complete any cleanup tasks.
+        // Note that this relies on the cancellation token to be properly used in the application.
+        if (_applicationTask != null)
+        {
+            await _applicationTask;
+        }
+
         _logger.LogDebug($"Exiting with return code: {_exitCode}");
 
         // Exit code may be null if the user cancelled via Ctrl+C/SIGTERM
         Environment.ExitCode = _exitCode.GetValueOrDefault(-1);
-        return Task.CompletedTask;
     }
 }
