@@ -9,7 +9,6 @@ internal sealed class ConsoleHostedService : IHostedService
     private readonly IHostApplicationLifetime _appLifetime;
     private readonly IWeatherService _weatherService;
 
-    private CancellationTokenSource? _cancellationTokenSource;
     private Task? _applicationTask;
     private int? _exitCode;
 
@@ -27,8 +26,11 @@ internal sealed class ConsoleHostedService : IHostedService
     {
         _logger.LogDebug($"Starting with arguments: {string.Join(" ", Environment.GetCommandLineArgs())}");
 
+        CancellationTokenSource? _cancellationTokenSource = null;
+
         _appLifetime.ApplicationStarted.Register(() =>
         {
+            _logger.LogDebug("Application has started");
             _cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             _applicationTask = Task.Run(async () =>
             {
@@ -59,14 +61,17 @@ internal sealed class ConsoleHostedService : IHostedService
             });
         });
 
+        _appLifetime.ApplicationStopping.Register(() =>
+        {
+            _logger.LogDebug("Application is stopping");
+            _cancellationTokenSource?.Cancel();
+        });
+
         return Task.CompletedTask;
     }
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {
-        _logger.LogDebug("Application is stopping");
-        _cancellationTokenSource?.Cancel();
-
         // Wait for the application logic to fully complete any cleanup tasks.
         // Note that this relies on the cancellation token to be properly used in the application.
         if (_applicationTask != null)
