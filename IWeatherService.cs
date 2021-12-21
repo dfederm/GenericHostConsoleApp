@@ -1,11 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+namespace GenericHostConsoleApp;
 
-namespace GenericHostConsoleApp
+internal interface IWeatherService
 {
-    internal interface IWeatherService
-    {
-        Task<IReadOnlyList<int>> GetFiveDayTemperaturesAsync();
-    }
+    Task<IReadOnlyList<int>> GetFiveDayTemperaturesAsync();
 }

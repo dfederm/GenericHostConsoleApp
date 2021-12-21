@@ -1,7 +1,6 @@
-namespace GenericHostConsoleApp
+namespace GenericHostConsoleApp;
+
+internal sealed class WeatherSettings
 {
-    internal sealed class WeatherSettings
-    {
-        public string Unit { get; set; }
-    }
+    public string Unit { get; init; } = string.Empty;
 }
